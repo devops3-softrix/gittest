@@ -1,0 +1,646 @@
+{% extends "base.html" %}
+
+{% block title %}{% if seo_title %}{{ seo_title }}{% else %}{{ title }} — FileForge{% endif %}{% endblock %}
+
+{% block extra_head %}
+{% if seo_description %}<meta name="description" content="{{ seo_description }}">{% endif %}
+<style>
+  /* ── Download result area ─────────────────────────────────────────── */
+  #result-area {
+    display: none;
+    animation: resultSlideIn 0.4s ease both;
+  }
+  #result-area.visible { display: block; }
+
+  @keyframes resultSlideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .download-btn {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(16,185,129,0.35);
+  }
+  .download-btn:active { transform: scale(0.98); }
+
+  /* Pulse on the success icon */
+  @keyframes successPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(16,185,129,0.5); }
+    70%  { box-shadow: 0 0 0 12px rgba(16,185,129,0); }
+    100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); }
+  }
+  .success-icon { animation: successPulse 1.5s ease-out; }
+
+  /* ── Limit gate overlay ─────────────────────────────────────────── */
+  .limit-gate {
+    position: absolute; inset: 0; z-index: 20;
+    background: rgba(15,17,23,0.92);
+    backdrop-filter: blur(6px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-radius: 0.75rem;
+    padding: 2rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back breadcrumb -->
+<div class="max-w-3xl mx-auto px-4 pt-8 pb-4">
+  <a href="/" class="inline-flex items-center gap-1.5 text-muted hover:text-white text-sm transition-colors group">
+    <svg class="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+    </svg>
+    All tools
+  </a>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     TOOL CARD
+═══════════════════════════════════════════════════════════════════════ -->
+<div class="max-w-3xl mx-auto px-4 pb-24">
+
+  <!-- Header -->
+  <div class="mb-8">
+    <div class="flex items-center gap-3 mb-3">
+      <div class="w-12 h-12 rounded-2xl bg-panel border border-border flex items-center justify-center text-2xl">
+        {{ icon|default:"⚙️" }}
+      </div>
+      <div>
+        <h1 class="font-display text-3xl font-700 text-white leading-none">{{ title }}</h1>
+        <p class="text-muted text-sm mt-1">{{ description }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload form card -->
+  <div class="bg-panel border border-border rounded-2xl overflow-hidden">
+
+    <!-- Progress bar (hidden until upload) -->
+    <div id="progress-wrap" class="hidden h-0.5 bg-border">
+      <div id="progress-bar" class="progress-bar h-full bg-gradient-to-r from-accent to-purple-500"></div>
+    </div>
+
+    <form id="upload-form" method="post" enctype="multipart/form-data"
+          action="{{ request.path }}" class="p-6 sm:p-8 space-y-6">
+      {% csrf_token %}
+
+      <!-- Limit gate overlay (shown when anonymous user exceeded free tier) -->
+      {% if limit_reached %}
+      <div class="limit-gate">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+             style="background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3);">
+          <svg class="w-8 h-8 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+        </div>
+        <p class="text-white font-display font-700 text-xl mb-2 text-center">Free conversions used up</p>
+        <p class="text-muted text-sm mb-6 text-center max-w-xs">Create a free account to get unlimited conversions — it takes 10 seconds.</p>
+        <div class="flex gap-3">
+          <a href="/signup/" class="px-6 py-2.5 rounded-xl font-display font-700 text-sm text-white no-underline
+                                    bg-accent hover:bg-indigo-500 transition-colors">Sign up free →</a>
+          <a href="/login/" class="px-6 py-2.5 rounded-xl font-display font-600 text-sm text-muted no-underline
+                                   border border-border hover:border-accent hover:text-white transition-colors">Log in</a>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Drop zone -->
+      <div id="drop-zone"
+           class="drop-zone rounded-xl p-8 sm:p-12 text-center relative"
+           onclick="document.getElementById('file-input').click()">
+
+        <!-- Idle state -->
+        <div id="drop-idle">
+          <div class="w-16 h-16 rounded-2xl bg-surface border border-border flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+          </div>
+          <p class="text-white font-display font-600 text-lg mb-1">
+            Drop your file here
+          </p>
+          <p class="text-muted text-sm mb-4">
+            or <span class="text-accent cursor-pointer hover:underline">click to browse</span>
+          </p>
+          <p class="font-mono text-xs text-muted/60">
+            Accepts: {{ accept }}
+          </p>
+        </div>
+
+        <!-- File selected state (hidden by default) -->
+        <div id="drop-selected" class="hidden">
+          <div class="w-16 h-16 rounded-2xl bg-emerald-900/30 border border-emerald-700 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+            </svg>
+          </div>
+          <p id="selected-filename" class="text-white font-display font-600 text-lg mb-1 truncate max-w-xs mx-auto"></p>
+          <p id="selected-filesize" class="text-muted text-sm mb-3"></p>
+          <!-- Multi-file list (shown only for merge-type tools) -->
+          {% if multiple %}
+          <div id="multi-file-list" class="text-left w-full max-w-sm mx-auto mb-3 space-y-1"></div>
+          <button type="button" onclick="addMoreFiles(event)"
+                  class="text-accent hover:underline text-xs transition-colors font-display font-600 mb-2">
+            + Add more files
+          </button>
+          <br>
+          {% endif %}
+          <button type="button" onclick="clearFile(event)"
+                  class="text-muted hover:text-red-400 text-xs transition-colors font-mono">
+            ✕ Remove all
+          </button>
+        </div>
+
+        <!-- Hidden file input(s) -->
+        {% if multiple %}
+        <input id="file-input" type="file" name="{{ field_name }}" accept="{{ accept }}"
+               multiple class="hidden" onchange="handleFiles(this)">
+        {% else %}
+        <input id="file-input" type="file" name="{{ field_name }}" accept="{{ accept }}"
+               class="hidden" onchange="handleFiles(this)">
+        {% endif %}
+      </div>
+
+      <!-- Extra fields (e.g., password for encrypt, select for split) -->
+      {% if extra_fields %}
+      <div class="space-y-4">
+        {% for field in extra_fields %}
+        <div>
+          <label class="block text-sm font-600 text-white mb-1.5 font-display">
+            {{ field.label }}
+          </label>
+          {% if field.type == 'select' %}
+          <select name="{{ field.name }}"
+                  class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white
+                         focus:outline-none focus:border-accent transition-colors font-body text-sm"
+                  style="appearance:auto;">
+            {% for opt in field.options %}
+            <option value="{{ opt.value }}">{{ opt.text }}</option>
+            {% endfor %}
+          </select>
+          {% else %}
+          <input type="{{ field.type }}" name="{{ field.name }}"
+                 placeholder="Enter {{ field.label|lower }}…"
+                 class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white placeholder-muted
+                        focus:outline-none focus:border-accent transition-colors font-body text-sm">
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Submit button -->
+      <button id="submit-btn" type="submit"
+              disabled
+              class="w-full py-3.5 px-6 rounded-xl font-display font-700 text-base transition-all
+                     bg-accent text-white disabled:opacity-30 disabled:cursor-not-allowed
+                     hover:bg-indigo-500 active:scale-[0.98]
+                     focus:outline-none focus:ring-2 focus:ring-accent/50">
+        <span id="btn-label">Convert →</span>
+        <span id="btn-loading" class="hidden">
+          <svg class="w-4 h-4 inline-block animate-spin mr-2" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+          </svg>
+          Converting…
+        </span>
+      </button>
+
+      <!-- Conversions remaining badge (anonymous users only) -->
+      {% if not is_authenticated and conversions_remaining >= 0 %}
+      <div class="flex items-center justify-center gap-2 py-2 px-4 rounded-lg mt-1"
+           style="background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.2);">
+        <svg class="w-3.5 h-3.5 text-accent flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z"/>
+        </svg>
+        <span class="text-xs font-mono" style="color:#818cf8;">
+          {{ conversions_remaining }} free conversion{{ conversions_remaining|pluralize }} remaining
+        </span>
+        <span class="text-muted text-xs">·</span>
+        <a href="/signup/" class="text-xs text-accent hover:underline font-600 no-underline">Sign up for unlimited</a>
+      </div>
+      {% endif %}
+
+    </form>
+
+    <!-- ── Download result area (injected by JS after conversion) ──── -->
+    <div id="result-area" class="border-t border-border p-6 sm:p-8">
+      <div class="flex items-center gap-4 mb-4">
+        <div id="result-icon" class="success-icon w-11 h-11 rounded-xl bg-emerald-900/30 border border-emerald-700 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <p id="result-heading" class="text-white font-display font-600 text-base">Conversion complete!</p>
+          <p id="result-filename" class="text-muted text-sm truncate"></p>
+        </div>
+      </div>
+      <button id="download-btn" type="button"
+         class="download-btn flex items-center justify-center gap-2.5 w-full py-3.5 px-6 rounded-xl font-display font-700 text-base text-white border-0 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        <span id="download-btn-label">Download</span>
+      </button>
+      <p class="text-center text-muted text-xs mt-3 font-mono">You can upload another file above while this download is available.</p>
+    </div>
+
+    <!-- Info strip -->
+    <div class="border-t border-border px-6 sm:px-8 py-4 flex flex-wrap gap-4">
+      {% for badge in info_badges %}
+      <div class="flex items-center gap-1.5 text-xs text-muted">
+        <span>{{ badge.icon }}</span>
+        <span>{{ badge.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+  </div>
+
+  <!-- How-this-conversion-works note -->
+  {% if conversion_note %}
+  <div class="mt-6 p-4 rounded-xl bg-panel border border-border/60 flex gap-3">
+    <span class="text-lg flex-shrink-0">💡</span>
+    <p class="text-muted text-sm leading-relaxed">{{ conversion_note }}</p>
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       SEO CONTENT — About this tool
+  ═══════════════════════════════════════════════════════════════════ -->
+  {% if long_description %}
+  <div class="mt-10 bg-panel border border-border rounded-2xl p-6 sm:p-8">
+    <h2 class="font-display text-xl font-700 text-white mb-4">About {{ title }}</h2>
+    {% for paragraph in long_description.splitlines %}
+      {% if paragraph.strip %}
+      <p class="text-muted text-sm leading-relaxed mb-3" style="color:#9ca3af;">{{ paragraph }}</p>
+      {% endif %}
+    {% endfor %}
+
+    {% if use_cases %}
+    <h3 class="font-display text-base font-600 text-white mt-6 mb-3">Common use cases</h3>
+    <ul class="space-y-2">
+      {% for case in use_cases %}
+      <li class="flex items-start gap-2.5 text-sm" style="color:#9ca3af;">
+        <span class="text-accent mt-0.5 flex-shrink-0">✦</span>
+        <span>{{ case }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════════════════════════════
+       RELATED TOOLS
+  ═══════════════════════════════════════════════════════════════════ -->
+  {% if related_tools %}
+  <div class="mt-10">
+    <h2 class="font-display text-xl font-700 text-white mb-5">Similar tools you might need</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+      {% for tool in related_tools %}
+      {% include "partials/tool_card.html" with color="purple" %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+
+{% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('file-input');
+const submitBtn  = document.getElementById('submit-btn');
+const form       = document.getElementById('upload-form');
+const resultArea = document.getElementById('result-area');
+const isMultiple = fileInput.hasAttribute('multiple');
+
+// Track previous blob URLs so we can revoke them to free memory
+let prevBlobUrl = null;
+let lastBlob = null;
+let lastFilename = '';
+
+// ── Multi-file accumulator (for Merge PDFs) ──────────────────────────────
+let accumulatedFiles = [];
+
+function addMoreFiles(e) {
+  e.stopPropagation();
+  fileInput.click();
+}
+
+function renderMultiFileList() {
+  const listEl = document.getElementById('multi-file-list');
+  if (!listEl) return;
+  listEl.innerHTML = '';
+  accumulatedFiles.forEach((f, idx) => {
+    const row = document.createElement('div');
+    row.className = 'flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg';
+    row.style.cssText = 'background:rgba(99,102,241,0.08); border:1px solid rgba(99,102,241,0.15);';
+    row.innerHTML = `
+      <span class="text-white text-xs truncate flex-1 font-mono">${f.name}</span>
+      <span class="text-muted text-xs flex-shrink-0">${formatBytes(f.size)}</span>
+      <button type="button" data-idx="${idx}"
+              class="text-muted hover:text-red-400 text-xs flex-shrink-0 transition-colors"
+              style="background:none;border:none;cursor:pointer;">✕</button>
+    `;
+    row.querySelector('button').addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      accumulatedFiles.splice(idx, 1);
+      syncAccumulatedFiles();
+    });
+    listEl.appendChild(row);
+  });
+}
+
+function syncAccumulatedFiles() {
+  if (accumulatedFiles.length === 0) {
+    clearFile(new Event('click'));
+    return;
+  }
+  // Rebuild a fresh DataTransfer with all accumulated files
+  const dt = new DataTransfer();
+  accumulatedFiles.forEach(f => dt.items.add(f));
+  fileInput.files = dt.files;
+
+  document.getElementById('drop-idle').classList.add('hidden');
+  document.getElementById('drop-selected').classList.remove('hidden');
+  document.getElementById('selected-filename').textContent = `${accumulatedFiles.length} files selected`;
+  const totalSize = accumulatedFiles.reduce((s, f) => s + f.size, 0);
+  document.getElementById('selected-filesize').textContent = formatBytes(totalSize);
+  renderMultiFileList();
+  submitBtn.disabled = false;
+}
+
+// ── Drag-and-drop ────────────────────────────────────────────────────────
+['dragenter','dragover'].forEach(ev => {
+  dropZone.addEventListener(ev, e => {
+    e.preventDefault();
+    dropZone.classList.add('drag-over');
+  });
+});
+['dragleave','drop'].forEach(ev => {
+  dropZone.addEventListener(ev, () => dropZone.classList.remove('drag-over'));
+});
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  const dt = e.dataTransfer;
+  if (dt.files.length) {
+    if (isMultiple) {
+      accumulatedFiles.push(...Array.from(dt.files));
+      syncAccumulatedFiles();
+    } else {
+      try { fileInput.files = dt.files; } catch (_) {}
+      showSelected(dt.files);
+    }
+  }
+});
+
+// ── File input change ───────────────────────────────────────────────────
+function handleFiles(input) {
+  if (!input.files.length) return;
+  if (isMultiple) {
+    accumulatedFiles.push(...Array.from(input.files));
+    syncAccumulatedFiles();
+  } else {
+    showSelected(input.files);
+  }
+}
+
+function showSelected(files) {
+  const names = Array.from(files).map(f => f.name);
+  const totalSize = Array.from(files).reduce((s, f) => s + f.size, 0);
+
+  document.getElementById('drop-idle').classList.add('hidden');
+  document.getElementById('drop-selected').classList.remove('hidden');
+  document.getElementById('selected-filename').textContent =
+    files.length > 1 ? `${files.length} files selected` : names[0];
+  document.getElementById('selected-filesize').textContent = formatBytes(totalSize);
+
+  submitBtn.disabled = false;
+}
+
+function clearFile(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  fileInput.value = '';
+  accumulatedFiles = [];
+  const listEl = document.getElementById('multi-file-list');
+  if (listEl) listEl.innerHTML = '';
+  document.getElementById('drop-idle').classList.remove('hidden');
+  document.getElementById('drop-selected').classList.add('hidden');
+  submitBtn.disabled = true;
+}
+
+function formatBytes(b) {
+  if (b < 1024)       return b + ' B';
+  if (b < 1048576)    return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(1) + ' MB';
+}
+
+// ── Show / hide converting state ─────────────────────────────────────────
+function showConverting() {
+  document.getElementById('progress-wrap').classList.remove('hidden');
+  document.getElementById('btn-label').classList.add('hidden');
+  document.getElementById('btn-loading').classList.remove('hidden');
+  submitBtn.disabled = true;
+}
+
+function resetConvertButton() {
+  document.getElementById('progress-wrap').classList.add('hidden');
+  document.getElementById('btn-label').classList.remove('hidden');
+  document.getElementById('btn-loading').classList.add('hidden');
+  submitBtn.disabled = !fileInput.files || fileInput.files.length === 0;
+}
+
+function resetDropZone() {
+  fileInput.value = '';
+  accumulatedFiles = [];
+  const listEl = document.getElementById('multi-file-list');
+  if (listEl) listEl.innerHTML = '';
+  document.getElementById('drop-idle').classList.remove('hidden');
+  document.getElementById('drop-selected').classList.add('hidden');
+}
+
+// ── Extract filename from Content-Disposition header ─────────────────────
+function getFilename(resp) {
+  const cd = resp.headers.get('Content-Disposition') || '';
+  let match = cd.match(/filename="?([^";\n]+)"?/i);
+  if (match) return match[1].trim();
+  return 'converted_file';
+}
+
+// ── Guess MIME type from filename extension ──────────────────────────────
+function guessMime(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  const map = {
+    pdf:'application/pdf', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    zip:'application/zip', txt:'text/plain', csv:'text/csv', json:'application/json',
+    png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', bmp:'image/bmp',
+    tiff:'image/tiff', webp:'image/webp', svg:'image/svg+xml',
+    mp3:'audio/mpeg', wav:'audio/wav', m4a:'audio/mp4', m4r:'audio/mp4',
+    mp4:'video/mp4', mov:'video/quicktime', webm:'video/webm', avi:'video/x-msvideo',
+    wmv:'video/x-ms-wmv', mkv:'video/x-matroska', flv:'video/x-flv',
+    odt:'application/vnd.oasis.opendocument.text', html:'text/html',
+  };
+  return map[ext] || 'application/octet-stream';
+}
+
+// ── Show result download area (SUCCESS) ──────────────────────────────────
+function showResult(blob, filename, size) {
+  if (prevBlobUrl) URL.revokeObjectURL(prevBlobUrl);
+  lastBlob = blob;
+  lastFilename = filename;
+  prevBlobUrl = URL.createObjectURL(blob);
+
+  // Set success state on heading and icon
+  const heading = document.getElementById('result-heading');
+  heading.textContent = 'Conversion complete!';
+  heading.style.color = '';
+
+  const iconWrap = document.getElementById('result-icon');
+  iconWrap.style.background = '';
+  iconWrap.style.borderColor = '';
+  iconWrap.innerHTML = `<svg class="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+  </svg>`;
+
+  document.getElementById('result-filename').textContent = filename + '  (' + formatBytes(size) + ')';
+  document.getElementById('download-btn-label').textContent = 'Download ' + filename;
+
+  const downloadBtn = document.getElementById('download-btn');
+  downloadBtn.style.background = '';
+  downloadBtn.style.cursor = '';
+  downloadBtn.disabled = false;
+
+  resultArea.classList.remove('visible');
+  void resultArea.offsetWidth;
+  resultArea.classList.add('visible');
+}
+
+// ── Show error inline (FAILURE) ──────────────────────────────────────────
+function showError(message) {
+  lastBlob = null;
+  lastFilename = '';
+
+  // Set error state on heading and icon
+  const heading = document.getElementById('result-heading');
+  heading.textContent = 'Conversion failed!';
+  heading.style.color = '#fca5a5';
+
+  const iconWrap = document.getElementById('result-icon');
+  iconWrap.style.background = 'rgba(127,29,29,0.3)';
+  iconWrap.style.borderColor = '#991b1b';
+  iconWrap.innerHTML = `<svg class="w-5 h-5" style="color:#f87171;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+  </svg>`;
+
+  document.getElementById('result-filename').innerHTML =
+    '<span style="color:#fca5a5;" class="font-mono text-xs whitespace-pre-wrap break-all">' +
+    message.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span>';
+
+  const downloadBtn = document.getElementById('download-btn');
+  downloadBtn.style.background = 'linear-gradient(135deg, #991b1b 0%, #dc2626 100%)';
+  downloadBtn.style.cursor = 'default';
+  downloadBtn.disabled = true;
+  document.getElementById('download-btn-label').textContent = 'Conversion failed';
+
+  resultArea.classList.remove('visible');
+  void resultArea.offsetWidth;
+  resultArea.classList.add('visible');
+}
+
+// ── Download button click — Save As dialog ───────────────────────────────
+document.getElementById('download-btn').addEventListener('click', async () => {
+  if (!lastBlob) return;
+
+  // Try native Save As dialog (File System Access API)
+  if (window.showSaveFilePicker) {
+    try {
+      const ext = lastFilename.includes('.') ? '.' + lastFilename.split('.').pop() : '';
+      const handle = await window.showSaveFilePicker({
+        suggestedName: lastFilename,
+        types: ext ? [{
+          description: ext.toUpperCase().slice(1) + ' file',
+          accept: { [guessMime(lastFilename)]: [ext] },
+        }] : [],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(lastBlob);
+      await writable.close();
+      return;
+    } catch (err) {
+      if (err.name === 'AbortError') return; // user cancelled
+      // Fall through to classic download
+    }
+  }
+
+  // Fallback: classic blob download
+  const a = document.createElement('a');
+  a.href = prevBlobUrl;
+  a.download = lastFilename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+});
+
+// ── Form submit — AJAX fetch instead of native submit ────────────────────
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  showConverting();
+
+  const formData = new FormData(form);
+
+  try {
+    const resp = await fetch(form.action, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    });
+
+    const contentDisp = resp.headers.get('Content-Disposition') || '';
+    const contentType = resp.headers.get('Content-Type') || '';
+
+    if (contentDisp.includes('attachment') || (!contentType.includes('text/html') && resp.ok)) {
+      // ✅ Successful conversion — got a file back
+      const blob = await resp.blob();
+      const filename = getFilename(resp);
+
+      resetConvertButton();
+      resetDropZone();
+      showResult(blob, filename, blob.size);
+    } else {
+      // ❌ Server returned an HTML error page
+      const html = await resp.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const errorEl = doc.querySelector('.font-mono.text-red-400');
+      const errorMsg = errorEl ? errorEl.textContent.trim() : 'An unknown conversion error occurred.';
+
+      resetConvertButton();
+      resetDropZone();
+      showError(errorMsg);
+    }
+  } catch (err) {
+    resetConvertButton();
+    resetDropZone();
+    showError('Network error: ' + err.message);
+  }
+});
+</script>
+{% endblock %}

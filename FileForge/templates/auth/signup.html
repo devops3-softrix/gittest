@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — FileForge{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto px-4 py-20">
+  <div class="text-center mb-8">
+    <div class="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+         style="background:#6366f1; font-family:'Syne',sans-serif; font-weight:700; font-size:1.25rem; color:#fff;">FF</div>
+    <h1 class="font-display text-3xl font-700 text-white mb-2">Create your account</h1>
+    <p class="text-muted text-sm">Sign up for free unlimited file conversions.</p>
+  </div>
+
+  <div class="bg-panel border border-border rounded-2xl p-6 sm:p-8">
+    {% if error %}
+    <div class="mb-5 p-3 rounded-xl text-sm"
+         style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5;">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-600 text-white mb-1.5 font-display">Username</label>
+        <input type="text" name="username" required autofocus
+               placeholder="Choose a username"
+               class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white placeholder-muted
+                      focus:outline-none focus:border-accent transition-colors font-body text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-600 text-white mb-1.5 font-display">Email <span class="text-muted font-400">(optional)</span></label>
+        <input type="email" name="email"
+               placeholder="your@email.com"
+               class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white placeholder-muted
+                      focus:outline-none focus:border-accent transition-colors font-body text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-600 text-white mb-1.5 font-display">Password</label>
+        <input type="password" name="password" required minlength="6"
+               placeholder="At least 6 characters"
+               class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white placeholder-muted
+                      focus:outline-none focus:border-accent transition-colors font-body text-sm">
+      </div>
+      <div>
+        <label class="block text-sm font-600 text-white mb-1.5 font-display">Confirm Password</label>
+        <input type="password" name="password2" required minlength="6"
+               placeholder="Re-enter your password"
+               class="w-full px-4 py-2.5 rounded-xl bg-surface border border-border text-white placeholder-muted
+                      focus:outline-none focus:border-accent transition-colors font-body text-sm">
+      </div>
+      <button type="submit"
+              class="w-full py-3.5 px-6 rounded-xl font-display font-700 text-base transition-all
+                     bg-accent text-white hover:bg-indigo-500 active:scale-[0.98]
+                     focus:outline-none focus:ring-2 focus:ring-accent/50">
+        Create Account →
+      </button>
+    </form>
+
+    <p class="text-center text-muted text-sm mt-6">
+      Already have an account?
+      <a href="/login/" class="text-accent hover:underline font-600">Log in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}
