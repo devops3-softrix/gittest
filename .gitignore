@@ -1,0 +1,16 @@
+# Security
+.env
+
+# Editor / IDE
+.vscode/
+*.swp
+*.bak
+
+# Python / Django
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
