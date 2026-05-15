@@ -1,204 +1,320 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{% block title %}FileForge — File Converter{% endblock %}</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{% block title %}FileForge — File Converter{% endblock %}</title>
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          fontFamily: {
-            display: ['Syne', 'sans-serif'],
-            body:    ['Outfit', 'sans-serif'],
-            mono:    ['JetBrains Mono', 'monospace'],
-          },
-          colors: {
-            surface:  '#0f1117',
-            panel:    '#161b27',
-            border:   '#1f2937',
-            muted:    '#6b7280',
-            accent:   '#6366f1',
-          },
+    <!-- Tailwind CSS CDN -->
+    <link rel="stylesheet" href="{% static 'output.css' %}">
+    <link rel="icon" type="image/x-icon" href="/fileforge/static/favicon.ico">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        * {
+            box-sizing: border-box;
         }
-      }
-    }
-  </script>
 
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #0f1117;
+            color: #e5e7eb;
+        }
 
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: 'Outfit', sans-serif; background: #0f1117; color: #e5e7eb; }
+        /* Noise texture overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+            opacity: 0.4;
+        }
 
-    /* Noise texture overlay */
-    body::before {
-      content: '';
-      position: fixed; inset: 0; z-index: 0; pointer-events: none;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-      opacity: 0.4;
-    }
-    main { position: relative; z-index: 1; }
+        main {
+            position: relative;
+            z-index: 1;
+        }
 
-    /* Gradient accent line at top */
-    .top-accent {
-      height: 2px;
-      background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, #f59e0b);
-    }
+        /* Gradient accent line at top */
+        .top-accent {
+            height: 2px;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899, #f59e0b);
+        }
 
-    /* ── Typography helpers (Tailwind doesn't have font-600/700/800) ── */
-    .fw-400 { font-weight: 400; }
-    .fw-500 { font-weight: 500; }
-    .fw-600 { font-weight: 600; }
-    .fw-700 { font-weight: 700; }
-    .fw-800 { font-weight: 800; }
+        /* ── Typography helpers (Tailwind doesn't have font-600/700/800) ── */
+        .fw-400 {
+            font-weight: 400;
+        }
 
-    /* Category color chips */
-    .chip-red    { background: #7f1d1d33; color: #fca5a5; border-color: #7f1d1d; }
-    .chip-blue   { background: #1e3a5f33; color: #93c5fd; border-color: #1e40af; }
-    .chip-purple { background: #4c1d9533; color: #c4b5fd; border-color: #5b21b6; }
-    .chip-green  { background: #064e3b33; color: #6ee7b7; border-color: #065f46; }
-    .chip-orange { background: #7c2d1233; color: #fdba74; border-color: #9a3412; }
-    .chip-teal   { background: #0f3e3e33; color: #5eead4; border-color: #115e59; }
-    .chip-yellow { background: #78350f33; color: #fde68a; border-color: #92400e; }
+        .fw-500 {
+            font-weight: 500;
+        }
 
-    /* ── Tool cards ── */
-    .tool-card-wrapper { height: 100%; }
-    .tool-card {
-      background: #161b27;
-      border: 1px solid #1f2937;
-      color: #e5e7eb;              /* always visible */
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-    }
-    .tool-card .card-desc { flex-grow: 1; }
-    .tool-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      border-color: #374151;
-    }
-    .tool-card .card-title   { color: #f9fafb; font-family: 'Syne', sans-serif; font-weight: 600; }
-    .tool-card .card-desc    { color: #9ca3af; }
-    .tool-card .card-arrow   { color: #374151; transition: color 0.18s; }
-    .tool-card:hover .card-title { color: #818cf8; }
-    .tool-card:hover .card-arrow { color: #818cf8; }
+        .fw-600 {
+            font-weight: 600;
+        }
 
-    /* Accent underline per category */
-    .tool-card .card-bar { height: 2px; border-radius: 1px; opacity: 0; transition: opacity 0.18s; }
-    .tool-card:hover .card-bar { opacity: 1; }
-    .bar-red    { background: #ef4444; }
-    .bar-blue   { background: #60a5fa; }
-    .bar-purple { background: #a78bfa; }
-    .bar-green  { background: #34d399; }
-    .bar-orange { background: #fb923c; }
-    .bar-teal   { background: #2dd4bf; }
-    .bar-yellow { background: #fbbf24; }
+        .fw-700 {
+            font-weight: 700;
+        }
 
-    /* Drop-zone */
-    .drop-zone {
-      border: 2px dashed #374151;
-      transition: border-color 0.2s, background 0.2s;
-      cursor: pointer;
-    }
-    .drop-zone.drag-over,
-    .drop-zone:hover { border-color: #6366f1; background: rgba(99,102,241,0.04); }
+        .fw-800 {
+            font-weight: 800;
+        }
 
-    /* Upload progress bar */
-    @keyframes progress-anim { from { width: 0% } to { width: 95% } }
-    .progress-bar { animation: progress-anim 8s ease forwards; }
+        /* Category color chips */
+        .chip-red {
+            background: #7f1d1d33;
+            color: #fca5a5;
+            border-color: #7f1d1d;
+        }
 
-    /* ── Safe animation helpers ─────────────────────────────────────────
+        .chip-blue {
+            background: #1e3a5f33;
+            color: #93c5fd;
+            border-color: #1e40af;
+        }
+
+        .chip-purple {
+            background: #4c1d9533;
+            color: #c4b5fd;
+            border-color: #5b21b6;
+        }
+
+        .chip-green {
+            background: #064e3b33;
+            color: #6ee7b7;
+            border-color: #065f46;
+        }
+
+        .chip-orange {
+            background: #7c2d1233;
+            color: #fdba74;
+            border-color: #9a3412;
+        }
+
+        .chip-teal {
+            background: #0f3e3e33;
+            color: #5eead4;
+            border-color: #115e59;
+        }
+
+        .chip-yellow {
+            background: #78350f33;
+            color: #fde68a;
+            border-color: #92400e;
+        }
+
+        /* ── Tool cards ── */
+        .tool-card-wrapper {
+            height: 100%;
+        }
+
+        .tool-card {
+            background: #161b27;
+            border: 1px solid #1f2937;
+            color: #e5e7eb;
+            /* always visible */
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+        }
+
+        .tool-card .card-desc {
+            flex-grow: 1;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            border-color: #374151;
+        }
+
+        .tool-card .card-title {
+            color: #f9fafb;
+            font-family: 'Syne', sans-serif;
+            font-weight: 600;
+        }
+
+        .tool-card .card-desc {
+            color: #9ca3af;
+        }
+
+        .tool-card .card-arrow {
+            color: #374151;
+            transition: color 0.18s;
+        }
+
+        .tool-card:hover .card-title {
+            color: #818cf8;
+        }
+
+        .tool-card:hover .card-arrow {
+            color: #818cf8;
+        }
+
+        /* Accent underline per category */
+        .tool-card .card-bar {
+            height: 2px;
+            border-radius: 1px;
+            opacity: 0;
+            transition: opacity 0.18s;
+        }
+
+        .tool-card:hover .card-bar {
+            opacity: 1;
+        }
+
+        .bar-red {
+            background: #ef4444;
+        }
+
+        .bar-blue {
+            background: #60a5fa;
+        }
+
+        .bar-purple {
+            background: #a78bfa;
+        }
+
+        .bar-green {
+            background: #34d399;
+        }
+
+        .bar-orange {
+            background: #fb923c;
+        }
+
+        .bar-teal {
+            background: #2dd4bf;
+        }
+
+        .bar-yellow {
+            background: #fbbf24;
+        }
+
+        /* Drop-zone */
+        .drop-zone {
+            border: 2px dashed #374151;
+            transition: border-color 0.2s, background 0.2s;
+            cursor: pointer;
+        }
+
+        .drop-zone.drag-over,
+        .drop-zone:hover {
+            border-color: #6366f1;
+            background: rgba(99, 102, 241, 0.04);
+        }
+
+        /* Upload progress bar */
+        @keyframes progress-anim {
+            from {
+                width: 0%
+            }
+
+            to {
+                width: 95%
+            }
+        }
+
+        .progress-bar {
+            animation: progress-anim 8s ease forwards;
+        }
+
+        /* ── Safe animation helpers ─────────────────────────────────────────
        Rule 1: Tool cards are ALWAYS visible — opacity never set to 0.
        Rule 2: Heading animation is additive (class toggled by JS only when
                prefers-reduced-motion: no-preference is true).
     ─────────────────────────────────────────────────────────────────── */
 
-    /* Cards: always full opacity. Hover only uses transform + shadow (CSS). */
-    .tool-card-wrapper { opacity: 1 !important; }
+        /* Cards: always full opacity. Hover only uses transform + shadow (CSS). */
+        .tool-card-wrapper {
+            opacity: 1 !important;
+        }
 
-    /* Heading progressive-enhance animation */
-    @keyframes headSlide {
-      from { opacity: 0.4; transform: translateY(6px); }
-      to   { opacity: 1;   transform: translateY(0); }
-    }
-    .heading-animate          { opacity: 1; }          /* fallback: always visible */
-    .heading-animate.heading-visible {
-      animation: headSlide 0.35s ease both;
-    }
-  </style>
+        /* Heading progressive-enhance animation */
+        @keyframes headSlide {
+            from {
+                opacity: 0.4;
+                transform: translateY(6px);
+            }
 
-  {% block extra_head %}{% endblock %}
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .heading-animate {
+            opacity: 1;
+        }
+
+        /* fallback: always visible */
+        .heading-animate.heading-visible {
+            animation: headSlide 0.35s ease both;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
 </head>
+
 <body class="min-h-full">
 
-  <!-- Top gradient accent line -->
-  <div class="top-accent"></div>
+    <!-- Top gradient accent line -->
+    <div class="top-accent"></div>
 
-  <!-- Navigation -->
-  <nav style="background:#161b27; border-bottom:1px solid #1f2937;" class="sticky top-0 z-50 backdrop-blur-sm">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
-      <a href="/" class="flex items-center gap-2.5 no-underline">
-        <div class="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs fw-700"
-             style="background:#6366f1; font-family:'Syne',sans-serif;">FF</div>
-        <span class="fw-700 text-lg tracking-tight text-white" style="font-family:'Syne',sans-serif;">
-          File<span style="color:#818cf8;">Forge</span>
-        </span>
-      </a>
-      <div class="hidden sm:flex items-center gap-1 text-sm">
-        {% for cat, label in nav_categories %}
-        <a href="/#{{ cat }}"
-           class="px-3 py-1.5 rounded-md no-underline transition-colors"
-           style="color:#6b7280;"
-           onmouseover="this.style.color='#f9fafb'; this.style.background='#1f2937';"
-           onmouseout="this.style.color='#6b7280'; this.style.background='transparent';">
-          {{ label }}
-        </a>
-        {% endfor %}
-      </div>
-      <div class="flex items-center gap-2 text-xs" style="font-family:'JetBrains Mono',monospace;">
-        {% if user.is_authenticated %}
-        <span style="color:#818cf8;">{{ user.username }}</span>
-        <a href="/logout/" class="px-2.5 py-1 rounded-md no-underline transition-colors"
-           style="color:#6b7280; border:1px solid #1f2937;"
-           onmouseover="this.style.color='#f9fafb'; this.style.borderColor='#374151';"
-           onmouseout="this.style.color='#6b7280'; this.style.borderColor='#1f2937';">Logout</a>
-        {% else %}
-        <a href="/login/" class="px-2.5 py-1 rounded-md no-underline transition-colors"
-           style="color:#6b7280; border:1px solid #1f2937;"
-           onmouseover="this.style.color='#f9fafb'; this.style.borderColor='#374151';"
-           onmouseout="this.style.color='#6b7280'; this.style.borderColor='#1f2937';">Log in</a>
-        <a href="/signup/" class="px-2.5 py-1 rounded-md no-underline transition-colors"
-           style="color:#fff; background:#6366f1; border:1px solid #6366f1;"
-           onmouseover="this.style.background='#4f46e5';"
-           onmouseout="this.style.background='#6366f1';">Sign up</a>
-        {% endif %}
-      </div>
-    </div>
-  </nav>
+    <!-- Navigation -->
+    <nav style="background:#161b27; border-bottom:1px solid #1f2937;" class="sticky top-0 z-50 backdrop-blur-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+            <a href="/fileforge/" class="flex items-center gap-2.5 no-underline">
+                <img src="{% static 'logo.png' %}" alt="FileForge Logo" style="width:36px; height:36px; border-radius:6px; object-fit:contain;">
+                <span class="fw-700 text-lg tracking-tight text-white" style="font-family:'Syne',sans-serif;">
+                    File<span style="color:#818cf8;">Forge</span>
+                </span>
+            </a>
+            <div class="hidden sm:flex items-center gap-1 text-sm">
+                {% for cat, label in nav_categories %}
+                <a href="/fileforge/#{{ cat }}" class="px-3 py-1.5 rounded-md no-underline transition-colors" style="color:#6b7280;" onmouseover="this.style.color='#f9fafb'; this.style.background='#1f2937';" onmouseout="this.style.color='#6b7280'; this.style.background='transparent';">
+                    {{ label }}
+                </a>
+                {% endfor %}
+            </div>
+            <div class="flex items-center gap-2 text-xs" style="font-family:'JetBrains Mono',monospace;">
+                {% if user.is_authenticated %}
+                <span style="color:#818cf8;">{{ user.username }}</span>
+                <a href="/fileforge/logout/" class="px-2.5 py-1 rounded-md no-underline transition-colors" style="color:#6b7280; border:1px solid #1f2937;" onmouseover="this.style.color='#f9fafb'; this.style.borderColor='#374151';" onmouseout="this.style.color='#6b7280'; this.style.borderColor='#1f2937';">Logout</a>
+                {% else %}
+                <a href="/fileforge/login/" class="px-2.5 py-1 rounded-md no-underline transition-colors" style="color:#6b7280; border:1px solid #1f2937;" onmouseover="this.style.color='#f9fafb'; this.style.borderColor='#374151';" onmouseout="this.style.color='#6b7280'; this.style.borderColor='#1f2937';">Log in</a>
+                <a href="/fileforge/signup/" class="px-2.5 py-1 rounded-md no-underline transition-colors" style="color:#fff; background:#6366f1; border:1px solid #6366f1;" onmouseover="this.style.background='#4f46e5';" onmouseout="this.style.background='#6366f1';">Sign up</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
 
-  <!-- Page content -->
-  <main>
-    {% block content %}{% endblock %}
-  </main>
+    <!-- Page content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
 
-  <!-- Footer -->
-  <footer style="border-top:1px solid #1f2937;" class="mt-24 py-8">
-    <div class="max-w-7xl mx-auto px-4 text-center text-sm" style="color:#6b7280; font-family:'Outfit',sans-serif;">
-      <p>FileForge — Built with Django + pure Python libraries</p>
-      <p class="mt-1 text-xs" style="font-family:'JetBrains Mono',monospace;">
-        All conversions happen server-side. Files are never stored permanently.
-      </p>
-    </div>
-  </footer>
+    <!-- Footer -->
+    <footer style="border-top:1px solid #1f2937;" class="mt-24 py-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-sm" style="color:#6b7280; font-family:'Outfit',sans-serif;">
+            <p>FileForge — Built with Django + pure Python libraries</p>
+            <p class="mt-1 text-xs" style="font-family:'JetBrains Mono',monospace;">
+                All conversions happen server-side. Files are never stored permanently.
+            </p>
+        </div>
+    </footer>
 
-  {% block extra_scripts %}{% endblock %}
+    {% block extra_scripts %}{% endblock %}
 </body>
+
 </html>
