@@ -39,11 +39,13 @@ All conversions are 100% pure Python — no LibreOffice, no Word, no system tool
 FileForge/
 ├── python/             ← virtual environment
 ├── bin/                ← (legacy; ffmpeg now installed system-wide)
-└── FileConverter/      ← Django project
-    ├── manage.py
-    ├── requirements.txt
-    ├── fileconverter/  ← Django config (settings.py, wsgi.py, urls.py)
-    └── tools/          ← all 42 conversion tools
+├── templates/          ← all html templates
+├── fileconverter/  ← Django config (settings.py, wsgi.py, urls.py)
+├── requirements.txt
+├── manage.py
+├── tools/          ← all 42 conversion tools
+├── README.md
+└── PROJECT_OVERVIEW.md
 ```
 
 ---

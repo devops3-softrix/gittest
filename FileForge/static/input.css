@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* Scan HTML templates for classes */
+@source "../templates/**/*.html";
+@source "../tools/templates/**/*.html";
+
+@theme {
+  --color-surface: #0f1117;
+  --color-panel: #161b27;
+  --color-border: #1f2937;
+  --color-muted: #6b7280;
+  --color-accent: #6366f1;
+
+  --font-display: "Syne", sans-serif;
+  --font-body: "Outfit", sans-serif;
+}
