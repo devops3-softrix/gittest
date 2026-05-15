@@ -87,7 +87,7 @@ load_dotenv()
 
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
 DEBUG = False
-ALLOWED_HOSTS = ['10.0.2.11', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['10.0.#.#', 'localhost', '127.0.0.1']
 
 # Subpath Configuration
 FORCE_SCRIPT_NAME = '/fileforge'
